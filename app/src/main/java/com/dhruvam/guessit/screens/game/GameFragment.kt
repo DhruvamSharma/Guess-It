@@ -1,11 +1,18 @@
 package com.dhruvam.guessit.screens.game
 
+import android.os.Build
 import android.os.Bundle
+import android.os.VibrationEffect
+import android.os.Vibrator
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.content.getSystemService
 import androidx.databinding.DataBindingUtil
+import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.get
 import androidx.navigation.fragment.findNavController
 import com.dhruvam.guessit.R
 import com.dhruvam.guessit.databinding.FragmentGameBinding
@@ -14,14 +21,11 @@ import com.dhruvam.guessit.databinding.FragmentGameBinding
  * A simple [Fragment] subclass.
  */
 class GameFragment : Fragment() {
-
+    // binding for game fragment
     private lateinit var binding: FragmentGameBinding
-    // current word
-    private var currentWord = ""
-    // current score
-    private var currentScore = 0
-    // The list of words - the front of the list is the next word to guess
-    private lateinit var wordList: MutableList<String>
+
+    // viewmodel for storing data
+    private lateinit var viewModel: GameViewModel
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -29,91 +33,48 @@ class GameFragment : Fragment() {
     ): View {
         // Inflate the layout for this fragment
         binding = DataBindingUtil.inflate(inflater, R.layout.fragment_game, container, false)
+        // create or restore game view model
+        viewModel = ViewModelProvider(this)[GameViewModel::class.java]
+        binding.viewModel = viewModel
+        binding.lifecycleOwner = viewLifecycleOwner
+        // listen for word changes
+        viewModel.gameFinishedEvent.observe(viewLifecycleOwner) {
+           if (it) {
+               gameFinished()
+           }
+        }
 
-        // create a new list and shuffle
-        resetList()
-        // assign the word and score for the first time
-        nextWord()
-
-        // assign listeners to skip and play button
-        binding.correctButton.setOnClickListener { onCorrect() }
-        binding.skipButton.setOnClickListener { onSkip() }
+        viewModel.buzz.observe(viewLifecycleOwner) {
+            if (it != GameViewModel.BuzzType.NO_BUZZ) {
+                buzz(it.pattern)
+            }
+        }
 
         return binding.root
     }
-
-
-    /**
-     * Resets the list of words and randomizes the order
-     */
-    private fun resetList() {
-        wordList = mutableListOf(
-            "queen",
-            "hospital",
-            "basketball",
-            "cat",
-            "change",
-            "snail",
-            "soup",
-            "calendar",
-            "sad",
-            "desk",
-            "guitar",
-            "home",
-            "railway",
-            "zebra",
-            "jelly",
-            "car",
-            "crow",
-            "trade",
-            "bag",
-            "roll",
-            "bubble"
-        )
-        wordList.shuffle()
-    }
-
 
     /**
      * Called when the game is finished
      */
     private fun gameFinished() {
-        val action = GameFragmentDirections.actionGameFragmentToScoreFragment(currentScore)
-        findNavController().navigate(action)
-    }
-
-    /**
-     * Moves to the next word in the list
-     */
-    private fun nextWord() {
-        //Select and remove a word from the list
-        if (wordList.isEmpty()) {
-            gameFinished()
-        } else {
-            currentWord = wordList.removeAt(0)
+        viewModel.currentScore.value.let {
+            val action =
+                GameFragmentDirections.actionGameFragmentToScoreFragment(it ?: 0)
+            findNavController().navigate(action)
         }
-        updateWordText()
-        updateScoreText()
+
     }
 
-    /** Methods for buttons presses **/
+    private fun buzz(pattern: LongArray) {
+        val buzzer = activity?.getSystemService<Vibrator>()
 
-    private fun onSkip() {
-        currentScore--
-        nextWord()
-    }
-
-    private fun onCorrect() {
-        currentScore++
-        nextWord()
-    }
-
-    /** Methods for updating the UI **/
-
-    private fun updateWordText() {
-        binding.wordText.text = currentWord
-    }
-    private fun updateScoreText() {
-        binding.scoreText.text = currentScore.toString()
+        buzzer?.let {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                buzzer.vibrate(VibrationEffect.createWaveform(pattern, -1))
+            } else {
+                //deprecated in API 26
+                buzzer.vibrate(pattern, -1)
+            }
+        }
     }
 }

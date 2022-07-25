@@ -24,7 +24,7 @@
             android:id="@+id/action_gameFragment_to_scoreFragment"
             app:launchSingleTop="true"
             app:destination="@id/scoreFragment"
-            app:popUpTo="@+id/title_destination"/>
+            app:popUpTo="@+id/titleFragment"/>
     </fragment>
     <fragment
         android:id="@+id/scoreFragment"
